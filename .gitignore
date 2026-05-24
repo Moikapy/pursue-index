@@ -172,3 +172,5 @@ docs/launch/journalist-outreach.md
 # Per-session scheduler lock the harness drops at the project root.
 # Process-local; never relevant to source.
 /.claude/scheduled_tasks.lock
+*.ndjson
+vectorize-upsert.json
