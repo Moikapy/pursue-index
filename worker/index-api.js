@@ -12,12 +12,13 @@
 // no card alias redirects, no security headers for browser pages.
 // Pure data API for our tools.
 
-import { handleRetrieve } from "./retrieve.js";
+import { handleSearch } from "./search.js";
+// Keep chat import — works if ANTHROPIC_API_KEY is set, otherwise returns error
 import { handleChat } from "./chat.js";
 import { tryHandlePdfRoute, tryHandleVideoRoute, tryHandleArchiveRoute } from "./pdf.js";
-
 // Our API paths — no frontend, no /api docs page
-const API_PATHS = new Set(["/api/retrieve", "/api/chat", "/api/tranche-status"]);
+// /api/retrieve kept for backward compat, /api/search is preferred
+const API_PATHS = new Set(["/api/retrieve", "/api/search", "/api/chat", "/api/tranche-status"]);
 
 // No CORS restriction — our tools call from Pi cron, CLI, dashboard.
 // Set permissive CORS for our own subdomain use.
@@ -104,7 +105,8 @@ export default {
       let response;
       switch (path) {
         case "/api/retrieve":
-          response = await handleRetrieve(request, env);
+        case "/api/search":
+          response = await handleSearch(request, env);
           break;
         case "/api/chat":
           response = await handleChat(request, env);
@@ -140,7 +142,7 @@ export default {
     // Anything else — 404. No frontend to fall through to.
     return withHeaders(
       new Response(
-        JSON.stringify({ error: "not found", hint: "API endpoints: /api/retrieve, /api/chat, /api/tranche-status" }),
+        JSON.stringify({ error: "not found", hint: "API endpoints: /api/search, /api/retrieve, /api/chat, /api/tranche-status" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
       )
     );
