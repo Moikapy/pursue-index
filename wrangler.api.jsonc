@@ -1,0 +1,51 @@
+// Moikapy pursue-index API-only Worker.
+//
+// Backend-only: /api/retrieve, /api/chat, /pdf, /video, /archive, /api/tranche-status
+// No frontend — all card pages, search UI, atlas, thumbs, OG images stripped.
+// Our tools query this directly; no rate limits, no tracking, no CORS gate.
+//
+// Deploy: wrangler deploy --config wrangler.api.jsonc
+//
+// Required secrets (wrangler secret put NAME):
+//   VOYAGE_API_KEY      — Voyage embeddings for /api/retrieve
+//   ANTHROPIC_API_KEY   — chat Q&A (optional, chat 503s without it)
+//
+// Required KV namespace:
+//   CHAT_KV             — rate limit + semantic cache
+//
+// Required R2 bucket:
+//   PDFS                — corpus PDFs at /pdf/<card_id>.pdf
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pursue-api",
+  "compatibility_date": "2026-05-08",
+  "main": "./worker/index-api.js",
+  "assets": {
+    "directory": "./data-api",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": true
+  },
+  "kv_namespaces": [
+    {
+      "binding": "CHAT_KV",
+      "id": "8108f2894d0345a2b256d147aa5226d4"
+    }
+  ],
+  // R2 bucket for PDF serving — enable after R2 is activated on the account.
+  // "r2_buckets": [
+  //   {
+  //     "binding": "PDFS",
+  //     "bucket_name": "pursue-pdfs"
+  //   }
+  // ],
+  "routes": [
+    {
+      "pattern": "pursue.moikapy.dev",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
