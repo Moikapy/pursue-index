@@ -67,6 +67,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch-size", type=int, default=50)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--start", type=int, default=0, help="Start index (resume from)")
     args = parser.parse_args()
 
     token = get_cf_token()
@@ -77,6 +78,8 @@ def main():
     with open(PAGES_PATH) as f:
         pages = json.load(f)
 
+    if args.start:
+        pages = pages[args.start:]
     if args.limit:
         pages = pages[:args.limit]
 
@@ -88,7 +91,8 @@ def main():
     written = 0
     start_time = time.time()
 
-    with open(OUTPUT_PATH, "w") as outf:
+    mode = "a" if args.start else "w"
+    with open(OUTPUT_PATH, mode) as outf:
         for i in range(0, total, bs):
             batch = pages[i:i + bs]
             texts = [p.get("title", "") + ". " + p.get("text", "")[:2000] for p in batch]
@@ -119,8 +123,8 @@ def main():
             eta = (total - done) / rate / 60 if rate > 0 else 0
             print(f"  {done}/{total} ({rate:.1f}/s, {written} vectors, ETA {eta:.1f}m)")
 
-            # Workers AI rate limit — don't hammer it
-            time.sleep(0.5)
+            # Workers AI rate limit — 10 requests/min on free tier
+            time.sleep(7)
 
     elapsed = time.time() - start_time
     print(f"\nDone! {written} vectors in {elapsed:.0f}s")

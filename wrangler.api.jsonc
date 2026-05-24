@@ -12,9 +12,7 @@
   "main": "./worker/index-api.js",
   "assets": {
     "directory": "./data-api",
-    "binding": "ASSETS",
-    "not_found_handling": "404-page",
-    "run_worker_first": true
+    "binding": "ASSETS"
   },
   "ai": {
     "binding": "AI"
@@ -25,13 +23,6 @@
       "index_name": "pursue-embeddings"
     }
   ],
-  // R2 bucket for PDF serving — enable after R2 is activated on the account.
-  // "r2_buckets": [
-  //   {
-  //     "binding": "PDFS",
-  //     "bucket_name": "pursue-pdfs"
-  //   }
-  // ],
   "routes": [
     {
       "pattern": "pursue.moikapy.dev",
