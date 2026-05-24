@@ -1,27 +1,21 @@
 // pursue-api Worker — API-only entry point for Moikapy.
 //
-// Stripped-down version of worker/index.js that only handles:
-//   /api/retrieve   — semantic search (Voyage embeddings)
-//   /api/chat        — Anthropic Q&A
-//   /api/tranche-status — our custom endpoint (page/card counts from manifest)
-//   /pdf/<id>.pdf    — R2 PDF serving
-//   /video/<id>.mp4  — R2 video serving
-//   /archive/<sha>   — preserved bytes
+// Data-only: search, tranche status, file serving. No chat, no external APIs.
+// Endpoints:
+//   /api/retrieve       — keyword search (backward compat)
+//   /api/search          — keyword search (preferred)
+//   /api/tranche-status  — corpus stats for poll script
+//   /pdf/<id>.pdf        — R2 PDF serving (pending R2 activation)
+//   /video/<id>.mp4      — R2 video serving (pending R2 activation)
+//   /archive/<sha>       — preserved bytes (pending R2 activation)
 //
-// No frontend, no CORS gate on API origins, no static asset cache policy,
-// no card alias redirects, no security headers for browser pages.
-// Pure data API for our tools.
+// Zero external dependencies. No Voyage, no Anthropic, no tracking.
 
 import { handleSearch } from "./search.js";
-// Keep chat import — works if ANTHROPIC_API_KEY is set, otherwise returns error
-import { handleChat } from "./chat.js";
 import { tryHandlePdfRoute, tryHandleVideoRoute, tryHandleArchiveRoute } from "./pdf.js";
-// Our API paths — no frontend, no /api docs page
-// /api/retrieve kept for backward compat, /api/search is preferred
-const API_PATHS = new Set(["/api/retrieve", "/api/search", "/api/chat", "/api/tranche-status"]);
 
-// No CORS restriction — our tools call from Pi cron, CLI, dashboard.
-// Set permissive CORS for our own subdomain use.
+const API_PATHS = new Set(["/api/retrieve", "/api/search", "/api/tranche-status"]);
+
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
@@ -31,7 +25,6 @@ function corsHeaders() {
   };
 }
 
-// Minimal security headers for API-only
 const SECURITY_HEADERS = [
   ["X-Content-Type-Options", "nosniff"],
   ["Referrer-Policy", "strict-origin-when-cross-origin"],
@@ -48,17 +41,14 @@ function withHeaders(response) {
 
 /**
  * /api/tranche-status — custom Moikapy endpoint.
- *
- * Returns corpus stats from the static assets (manifest + pages data).
+ * Returns corpus stats from the static assets.
  * Used by our 30-min cron poll instead of scraping the homepage.
  */
 async function handleTrancheStatus(request, env) {
-  // Try to get card count from the asset listing
   let cardCount = 0;
   let pageCount = 0;
 
   try {
-    // embed_index.json: { model_id, dim, n: 4127, pages: [[card_id, page_num], ...] }
     const indexRes = await env.ASSETS.fetch("https://assets/data/embed_index.json");
     if (indexRes.ok) {
       const indexData = await indexRes.json();
@@ -67,7 +57,7 @@ async function handleTrancheStatus(request, env) {
       cardCount = cards.size;
     }
   } catch {
-    // Fail soft — return what we have
+    // Fail soft
   }
 
   return new Response(
@@ -81,7 +71,7 @@ async function handleTrancheStatus(request, env) {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=1800", // match our 30-min poll
+        "Cache-Control": "public, max-age=1800",
         ...corsHeaders(),
       },
     }
@@ -93,9 +83,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // API routes
     if (API_PATHS.has(path)) {
-      // Handle preflight
       if (request.method === "OPTIONS") {
         return withHeaders(
           new Response(null, { status: 204, headers: corsHeaders() })
@@ -108,9 +96,6 @@ export default {
         case "/api/search":
           response = await handleSearch(request, env);
           break;
-        case "/api/chat":
-          response = await handleChat(request, env);
-          break;
         case "/api/tranche-status":
           response = await handleTrancheStatus(request, env);
           break;
@@ -121,7 +106,6 @@ export default {
           });
       }
 
-      // Stamp CORS headers on all API responses
       const corsResponse = new Response(response.body, response);
       for (const [k, v] of Object.entries(corsHeaders())) {
         corsResponse.headers.set(k, v);
@@ -129,7 +113,7 @@ export default {
       return withHeaders(corsResponse);
     }
 
-    // R2 routes — PDFs, videos, archives
+    // R2 routes — PDFs, videos, archives (pending R2 activation)
     const pdfResponse = await tryHandlePdfRoute(request, env);
     if (pdfResponse) return withHeaders(pdfResponse);
 
@@ -139,10 +123,9 @@ export default {
     const archiveResponse = await tryHandleArchiveRoute(request, env);
     if (archiveResponse) return withHeaders(archiveResponse);
 
-    // Anything else — 404. No frontend to fall through to.
     return withHeaders(
       new Response(
-        JSON.stringify({ error: "not found", hint: "API endpoints: /api/search, /api/retrieve, /api/chat, /api/tranche-status" }),
+        JSON.stringify({ error: "not found", hint: "API endpoints: /api/search, /api/retrieve, /api/tranche-status" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
       )
     );

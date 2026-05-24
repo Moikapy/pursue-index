@@ -1,20 +1,10 @@
-// Moikapy pursue-index API-only Worker.
+// Moikapy pursue-api — data-only Cloudflare Worker.
 //
-// Backend-only: /api/retrieve, /api/chat, /pdf, /video, /archive, /api/tranche-status
-// No frontend — all card pages, search UI, atlas, thumbs, OG images stripped.
-// Our tools query this directly; no rate limits, no tracking, no CORS gate.
+// Endpoints: /api/search, /api/retrieve (compat), /api/tranche-status
+// No frontend. No chat. Semantic search via Vectorize + Workers AI.
+// No external APIs. No secrets needed.
 //
 // Deploy: wrangler deploy --config wrangler.api.jsonc
-//
-// Required secrets (wrangler secret put NAME):
-//   VOYAGE_API_KEY      — Voyage embeddings for /api/retrieve
-//   ANTHROPIC_API_KEY   — chat Q&A (optional, chat 503s without it)
-//
-// Required KV namespace:
-//   CHAT_KV             — rate limit + semantic cache
-//
-// Required R2 bucket:
-//   PDFS                — corpus PDFs at /pdf/<card_id>.pdf
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "pursue-api",
@@ -26,10 +16,13 @@
     "not_found_handling": "404-page",
     "run_worker_first": true
   },
-  "kv_namespaces": [
+  "ai": {
+    "binding": "AI"
+  },
+  "vectorize": [
     {
-      "binding": "CHAT_KV",
-      "id": "8108f2894d0345a2b256d147aa5226d4"
+      "binding": "VECTORIZE",
+      "index_name": "pursue-embeddings"
     }
   ],
   // R2 bucket for PDF serving — enable after R2 is activated on the account.
